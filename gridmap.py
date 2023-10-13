@@ -5,9 +5,23 @@ from gym import spaces
 import gym
 from gym.envs.classic_control import utils
 from gym.envs.classic_control import rendering
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GLUT import *
+
+
 
 class GridMap(gym.Env):
-
+    metadata = {
+        'render.modes': ['human', 'rgb_array'],
+        'video.frames_per_second': 50
+    }
+    '''
+    metadata字典包含有关环境的信息，例如渲染模式和视频渲染的每秒帧数。
+    human模式用于在屏幕上渲染环境，而rgb_array模式用于将环境渲染为NumPy数组的图像。
+    video.frames_per_second参数指定了视频渲染的每秒帧数。
+    '''
+    
     def __init__(self):
         #4*4=16 states
         self.states=[i for i in range(16)]
@@ -93,6 +107,13 @@ class GridMap(gym.Env):
         return next_state, r, is_terminal, {}
 
     def render(self, mode='human', close=False):
+        rendering._close_window()
+        if close:
+            if self.viewer is not None:
+                self.viewer.close()
+                self.viewer = None
+            return
+        
         screen_width = 600
         screen_height = 600
 
@@ -155,7 +176,9 @@ class GridMap(gym.Env):
             if self.state is None: 
                 return None
 
-            self
+            self.now = rendering.make_circle(50)
+            self.now.set_color(0.8, 0.6, 0.4)
+            self.viewer.add_geom(self.now)
             return self.viewer.render(return_rgb_array=mode == 'human')
 
     def info_print(self):
@@ -164,14 +187,3 @@ class GridMap(gym.Env):
         print("rewards:",self.rewards)
         print(self.x)
         print(self.y)
-
-#https://zhuanlan.zhihu.com/p/485631527
-try:
-    test=GridMap()
-    test.info_print()
-    test.reset()
-    test.render()
-finally:
-    import time
-    time.sleep(2)
-    test.close()

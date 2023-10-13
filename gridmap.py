@@ -1,20 +1,26 @@
-import logging
-import numpy as np
+
 import random
-from gym import spaces
-import gym
-from gym.envs.classic_control import utils
-from gym.envs.classic_control import rendering
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 
+import pygame
+from pygame import gfxdraw as gfx
+from typing import Optional, Union
+
+import numpy as np
+
+import gym
+from gym import logger, spaces
+from gym.envs.classic_control import utils, rendering
+from gym.error import DependencyNotInstalled
 
 
-class GridMap(gym.Env):
+
+class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的观测空间是一个NumPy数组，动作空间可以是整数或NumPy数组。
     metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 50,
     }
     '''
     metadata字典包含有关环境的信息，例如渲染模式和视频渲染的每秒帧数。
@@ -22,11 +28,15 @@ class GridMap(gym.Env):
     video.frames_per_second参数指定了视频渲染的每秒帧数。
     '''
     
-    def __init__(self):
+    def __init__(self, render_mode: Optional[str] = None):
+        
+        self.render_mode = render_mode
+        
         #4*4=16 states
         self.states=[i for i in range(16)]
         self.actions=['up', 'down', 'right', 'left']
-        
+        self.action_space = gym.spaces.Discrete(len(self.actions))
+        self.observation_space = gym.spaces.Discrete(len(self.states))
         #位置
         self.x = []
         self.y = []
@@ -76,15 +86,33 @@ class GridMap(gym.Env):
         self.gamma = 0.9
         self.viewer = None#?
         self.state = None #?
-
-    def reset(self):
-        self.state = self.states[int(random.random() * len(self.states))]
-        return self.state
+        self.screen = None 
+        self.clock = None
+    
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[dict] = None,
+    ):
+        while True:
+            self.state = self.states[int(random.random() * len(self.states))]
+            if self.state not in self.terminate_states:
+                break
+        
+        if self.render_mode == "human":
+            self.render()
+        
+        return self.state, {}
     
     def setAction(self, s):
         self.state = s
     
     def step(self, action):    #return observation, reward, done, info
+        err_msg = f"{action!r} ({type(action)}) invalid"
+        assert action in self.actions, err_msg
+        assert self.state is not None, 'Call reset before using step method'
+        
         state = self.state
         if state in self.terminate_states:
             return state, 0, True, {}
@@ -96,90 +124,88 @@ class GridMap(gym.Env):
             next_state = state
         self.state = next_state
 
-        is_terminal = False
-        if next_state in self.terminate_states:
-            is_terminal = True
-        if key not in self.rewards:
-            r = 0
-        else :
+        is_terminal = bool(
+            next_state in self.terminate_states
+        )
+        
+        reward = 0
+        if key in self.rewards:
             r = self.rewards[key]
 
-        return next_state, r, is_terminal, {}
-
-    def render(self, mode='human', close=False):
-        rendering._close_window()
-        if close:
-            if self.viewer is not None:
-                self.viewer.close()
-                self.viewer = None
-            return
+        if self.render_mode == "human":
+            self.render()
         
+        return next_state, reward, is_terminal, False, {}
+        #False是在返回结果中的倒数第二个元素，表示当前时间步骤是否处于"done"状态，即是否已经完成了一个回合
+        
+    def render(self, mode='human', close=False):
+        
+        if self.render_mode is None:
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
+            )
+
         screen_width = 600
         screen_height = 600
+        if self.screen is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                self.screen = pygame.display.set_mode(
+                    (screen_width, screen_height)
+                )
+            else :
+                self.screen = pygame.Surface((screen_width, screen_height))
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+            #通过使用Clock对象，可以确保游戏在每秒钟渲染的帧数保持一致，从而使游戏画面更加平滑。
 
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-            #创建地图
-            self.line1 = rendering.Line((100,100),(500,100))
-            self.line2 = rendering.Line((100,200),(500,200))
-            self.line3 = rendering.Line((100,300),(500,300))
-            self.line4 = rendering.Line((100,400),(500,400))
-            self.line5 = rendering.Line((100,500),(500,500))
-            self.line6 = rendering.Line((100,100),(100,500))
-            self.line7 = rendering.Line((200,100),(200,500))
-            self.line8 = rendering.Line((300,100),(300,500))
-            self.line9 = rendering.Line((400,100),(400,500))
-            self.line10= rendering.Line((500,100),(500,500))
-            self.line1.set_color(0, 0, 0)
-            self.line2.set_color(0, 0, 0)
-            self.line3.set_color(0, 0, 0)
-            self.line4.set_color(0, 0, 0)
-            self.line5.set_color(0, 0, 0)
-            self.line6.set_color(0, 0, 0)
-            self.line7.set_color(0, 0, 0)
-            self.line8.set_color(0, 0, 0)
-            self.line9.set_color(0, 0, 0)
-            self.line10.set_color(0, 0, 0)
-            #创建block
-            self.block1 = rendering.FilledPolygon([
-                (100,100), (200,100),(200,200),(100,200)
-            ])
-            self.block2 = rendering.FilledPolygon([
-                (400,200),(500,200),(500,300),(400,300)
-            ])
-            self.block3 = rendering.FilledPolygon([
-                (200,300),(300,300),(300,400),(200,400)
-            ])
-            self.golden = rendering.FilledPolygon([
-                (300,100),(400,100),(400,200),(300,200)
-            ])
-            self.block1.set_color(0, 0, 0)
-            self.block2.set_color(0, 0, 0)
-            self.block3.set_color(0, 0, 0)
-            self.golden.set_color(255, 215, 0)
+        #创建环境
+        self.surf = pygame.Surface((screen_width, screen_height))
+        self.surf.fill((255, 255, 255))
+        
+        #水平线hline(surface, x1, x2, y, color)
+        gfx.hline(self.surf, 100, 500, 100, (0,0,0))
+        gfx.hline(self.surf, 100, 500, 200, (0,0,0))
+        gfx.hline(self.surf, 100, 500, 300, (0,0,0))
+        gfx.hline(self.surf, 100, 500, 400, (0,0,0))
+        gfx.hline(self.surf, 100, 500, 500, (0,0,0))
+        #垂直线vline(surface, x, y1, y2, color)
+        gfx.vline(self.surf, 100, 100, 500, (0,0,0))
+        gfx.vline(self.surf, 200, 100, 500, (0,0,0))
+        gfx.vline(self.surf, 300, 100, 500, (0,0,0))
+        gfx.vline(self.surf, 400, 100, 500, (0,0,0))
+        gfx.vline(self.surf, 500, 100, 500, (0,0,0))
+        
+        #绘制填充矩形box(surface, rect, color)
+        #rec=(x, y, width, height)
+        gfx.box(self.surf, (100,100,100,100), (0,0,0))
+        gfx.box(self.surf, (400,200,100,100), (0,0,0))
+        gfx.box(self.surf, (200,300,100,100), (0,0,0))
+        gfx.box(self.surf, (300,100,100,100), (255,215,0))
+        
+        #绘画圆circle(surface, x, y, r, color)
+        gfx.filled_circle(self.surf, 350, 350, 50, (222,222,100))
+        
+        
+        self.surf = pygame.transform.flip(self.surf, False, True)
+        self.screen.blit(self.surf, (0, 0))
+        if self.render_mode == "human":
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
+            pygame.display.flip()
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+            )
 
-            self.viewer.add_geom(self.line1)
-            self.viewer.add_geom(self.line2)
-            self.viewer.add_geom(self.line3)
-            self.viewer.add_geom(self.line4)
-            self.viewer.add_geom(self.line5)
-            self.viewer.add_geom(self.line6)
-            self.viewer.add_geom(self.line7)
-            self.viewer.add_geom(self.line8)
-            self.viewer.add_geom(self.line9)
-            self.viewer.add_geom(self.line10)
-            self.viewer.add_geom(self.block1)
-            self.viewer.add_geom(self.block2)
-            self.viewer.add_geom(self.block3)
-            self.viewer.add_geom(self.golden)
-
-            if self.state is None: 
-                return None
-
-            self.now = rendering.make_circle(50)
-            self.now.set_color(0.8, 0.6, 0.4)
-            self.viewer.add_geom(self.now)
-            return self.viewer.render(return_rgb_array=mode == 'human')
+    def close(self):
+        if self.screen is not None:
+            pygame.display.quit()
+            pygame.quit()
+            self.isopen = False
 
     def info_print(self):
         print("states:",self.states)
@@ -187,3 +213,4 @@ class GridMap(gym.Env):
         print("rewards:",self.rewards)
         print(self.x)
         print(self.y)
+

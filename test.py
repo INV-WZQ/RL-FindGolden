@@ -5,5 +5,5 @@ observation, info = env.reset()
 env.render()
 
 import time
-time.sleep(50)
+time.sleep(5)
 env.close()

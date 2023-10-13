@@ -40,14 +40,14 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         #位置
         self.x = []
         self.y = []
-        for x in [150, 250, 350, 450]:
-            for y in [150, 250, 350, 450]:
+        for y in [450, 350, 250, 150]:
+            for x in [150, 250, 350, 450]:
                 self.x.append(x)
                 self.y.append(y)
 
         #终止状态
         self.terminate_states = dict()
-        for i in [0, 2, 7, 9]:
+        for i in [5, 11, 12 ,14]:
             self.terminate_states[i] = 1
 
         self.rewards = dict() #不同状态下采取动作的奖励
@@ -55,37 +55,51 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         for i in range(4):
             for j in range(4):
                 pos = i*4+j         
-                if pos in [0, 2, 7, 9]: 
+                if pos in [5, 11, 12 ,14]: 
                     continue
 
                 if i>0:
                     self.t[f'{pos}_up'] = pos-4
                     self.rewards[f'{pos}_up'] = -1.
-                    if (pos in [4, 11, 13]):
+                    if (pos in [9, 15]):
                         self.rewards[f'{pos}_up'] = -10.
+                else :
+                    self.t[f'{pos}_up'] = pos
+                    self.rewards[f'{pos}_up'] = -10.
+                
                 if i<3:
                     self.t[f'{pos}_down'] = pos+4
                     self.rewards[f'{pos}_down'] = -1.
-                    if (pos in [3, 5]):
+                    if (pos in [1, 7, 8]):
                         self.rewards[f'{pos}_down'] = -10.
+                else:
+                    self.t[f'{pos}_down'] = pos
+                    self.rewards[f'{pos}_down'] = -10.
+
                 if j<3:
                     self.t[f'{pos}_right'] = pos+1
                     self.rewards[f'{pos}_right'] = -1.
-                    if (pos in [6, 8]):
+                    if (pos in [4, 10]):
                         self.rewards[f'{pos}_right'] = -10.
+                else:
+                    self.t[f'{pos}_right'] = pos
+                    self.rewards[f'{pos}_right'] = -10.
+
                 if j>0:
                     self.t[f'{pos}_left'] = pos-1
                     self.rewards[f'{pos}_left'] = -1.
-                    if (pos in [1, 10]):
+                    if (pos in [6, 13]):
                         self.rewards[f'{pos}_left'] = -10.
+                else:
+                    self.t[f'{pos}_left'] = pos
+                    self.rewards[f'{pos}_left'] = -10.
         
-        self.rewards['1_right'] = 1.
-        self.rewards['3_left'] = 1.
-        self.rewards['6_up'] = 1.
+        self.rewards['13_right'] = 1.
+        self.rewards['15_left'] = 1.
+        self.rewards['10_down'] = 1.
 
         self.gamma = 0.9
-        self.viewer = None#?
-        self.state = None #?
+        self.state = None 
         self.screen = None 
         self.clock = None
     
@@ -109,6 +123,7 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         self.state = s
     
     def step(self, action):    #return observation, reward, done, info
+        action = self.actions[int(action)]
         err_msg = f"{action!r} ({type(action)}) invalid"
         assert action in self.actions, err_msg
         assert self.state is not None, 'Call reset before using step method'
@@ -130,7 +145,7 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         
         reward = 0
         if key in self.rewards:
-            r = self.rewards[key]
+            reward = self.rewards[key]
 
         if self.render_mode == "human":
             self.render()
@@ -181,13 +196,13 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         
         #绘制填充矩形box(surface, rect, color)
         #rec=(x, y, width, height)
-        gfx.box(self.surf, (100,100,100,100), (0,0,0))
-        gfx.box(self.surf, (400,200,100,100), (0,0,0))
-        gfx.box(self.surf, (200,300,100,100), (0,0,0))
+        gfx.box(self.surf, (100,100,100,100), (100,0,0))
+        gfx.box(self.surf, (400,200,100,100), (0,100,0))
+        gfx.box(self.surf, (200,300,100,100), (0,0,100))
         gfx.box(self.surf, (300,100,100,100), (255,215,0))
         
         #绘画圆circle(surface, x, y, r, color)
-        gfx.filled_circle(self.surf, 350, 350, 50, (222,222,100))
+        gfx.filled_circle(self.surf, self.x[self.state], self.y[self.state], 50, (222,222,100))
         
         
         self.surf = pygame.transform.flip(self.surf, False, True)
@@ -201,6 +216,9 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
                 np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
             )
 
+        import time
+        time.sleep(0.5)
+
     def close(self):
         if self.screen is not None:
             pygame.display.quit()
@@ -213,4 +231,3 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         print("rewards:",self.rewards)
         print(self.x)
         print(self.y)
-

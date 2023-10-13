@@ -14,5 +14,5 @@ from OpenGL.GLUT import *
 https://blog.csdn.net/qq_41556318/article/details/86305564
 
 ## Environment
-![image.png](./map-of-game.png)
+![image.png](./Map-of-game.png)
 

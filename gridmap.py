@@ -31,7 +31,6 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
     def __init__(self, render_mode: Optional[str] = None):
         
         self.render_mode = render_mode
-        
         #4*4=16 states
         self.states=[i for i in range(16)]
         self.actions=['up', 'down', 'right', 'left']
@@ -93,24 +92,24 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
                 else:
                     self.t[f'{pos}_left'] = pos
                     self.rewards[f'{pos}_left'] = -10.
-        
+        #到达目标奖励
         self.rewards['13_right'] = 1.
         self.rewards['15_left'] = 1.
         self.rewards['10_down'] = 1.
 
-        self.gamma = 0.9
         self.state = None 
         self.screen = None 
         self.clock = None
     
+    #初始化
     def reset(
         self,
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ):
-        while True:
-            self.state = self.states[int(random.random() * len(self.states))]
+        while True:#初始化不能在障碍和目标处
+            self.state = self.states[int(random.random() * len(self.states))]#随机找状态
             if self.state not in self.terminate_states:
                 break
         
@@ -122,17 +121,17 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
     def setAction(self, s):
         self.state = s
     
-    def step(self, action):    #return observation, reward, done, info
-        action = self.actions[int(action)]
-        err_msg = f"{action!r} ({type(action)}) invalid"
+    def step(self, action):    #return observation, reward, terminate, done, info
+        action = self.actions[int(action)]          #action是数字，得对应到具体的actions
+        err_msg = f"{action!r} ({type(action)}) invalid" 
         assert action in self.actions, err_msg
         assert self.state is not None, 'Call reset before using step method'
         
-        state = self.state
+        state = self.state      
         if state in self.terminate_states:
             return state, 0, True, {}
         key = f'{state}_{action}'
-
+        #转移
         if key in self.t:
             next_state = self.t[key]
         else:
@@ -142,7 +141,7 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         is_terminal = bool(
             next_state in self.terminate_states
         )
-        
+        #奖励
         reward = 0
         if key in self.rewards:
             reward = self.rewards[key]
@@ -152,7 +151,8 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         
         return next_state, reward, is_terminal, False, {}
         #False是在返回结果中的倒数第二个元素，表示当前时间步骤是否处于"done"状态，即是否已经完成了一个回合
-        
+    
+    #画图
     def render(self, mode='human', close=False):
         
         if self.render_mode is None:
@@ -161,7 +161,7 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
                 "You can specify the render_mode at initialization, "
                 f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
             )
-
+        #显示窗口高宽
         screen_width = 600
         screen_height = 600
         if self.screen is None:
@@ -205,7 +205,7 @@ class GridMap(gym.Env[np.ndarray, Union[int, np.ndarray]]):# CartPoleEnv类的�
         gfx.filled_circle(self.surf, self.x[self.state], self.y[self.state], 50, (222,222,100))
         
         
-        self.surf = pygame.transform.flip(self.surf, False, True)
+        #self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (0, 0))
         if self.render_mode == "human":
             pygame.event.pump()
